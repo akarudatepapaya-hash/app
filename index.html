@@ -170,28 +170,20 @@
             </div>
           </div>
 
-          <div class="topbar-right">
-              <div class="topbar-actions-group">
-        
-                  <button id="gsheetSyncBtn" class="btn btn-secondary">
-                      🔄 Sync จาก Google Sheets
-                  </button>
-                  <button id="excelImportBtn" class="btn btn-outline">
-                      📁 นำเข้าไฟล์ Excel
-                  </button>
-                  <input type="file" id="excelImportFile" accept=".xlsx, .xls" style="display:none;" />
-                  <div class="user-dropdown"> ... </div>
-              </div>
+          <div class="global-search">
+            <input type="text" id="globalSearch" placeholder="ค้นหาเลขที่เบิก / ผู้เบิก / shipment / หมวด / รายการ / ธนาคาร / หมายเหตุ" />
           </div>
-            <div class="global-search">
-              <input
-                type="text"
-                id="globalSearch"
-                placeholder="ค้นหาเลขที่เบิก / ผู้เบิก / shipment / หมวด / รายการ / ธนาคาร / หมายเหตุ"
-              />
-            </div>
 
+          <div class="topbar-right">
             <div class="topbar-actions-group">
+              <button id="gsheetSyncBtn" class="btn btn-secondary">
+                🔄 Sync จาก Google Sheets
+              </button>
+              <button id="excelImportBtn" class="btn btn-outline">
+                📁 นำเข้าไฟล์ Excel
+              </button>
+              <input type="file" id="excelImportFile" accept=".xlsx, .xls" style="display:none;" />
+              
               <button class="btn btn-secondary" id="openCreateShipmentModal">
                 + สร้าง Shipment
               </button>

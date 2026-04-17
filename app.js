@@ -190,6 +190,10 @@ function bindGlobalEvents() {
   bindSearchAndFilters();
   bindKbizUploadEvents();
   bindRevenueEvents();   // Phase 3
+  
+  // === ส่วนที่เพิ่มเข้ามาใหม่ให้ปุ่มทำงาน ===
+  if (typeof bindExcelImportEvents === "function") bindExcelImportEvents();
+  if (typeof bindGSheetSyncEvents === "function") bindGSheetSyncEvents();
 }
 
 function bindLoginEvents() {
@@ -1816,3 +1820,298 @@ window.toggleRevenueWithholding = toggleRevenueWithholding;
 window.toggleDemoDocStatus = toggleDemoDocStatus;
 window.toggleDemoStatement = toggleDemoStatement;
 window.toast = toast;
+
+// ============================================================
+// EXCEL IMPORT & GSHEETS SYNC (Phase 4)
+// ============================================================
+const GSHEET_CONFIG = { webhookUrl: "" };
+
+function bindGSheetSyncEvents() {
+  const btn = $("#gsheetSyncBtn");
+  if (btn) btn.addEventListener("click", syncFromGoogleSheets);
+
+  const saveWebhookBtn = $("#saveWebhookUrl");
+  if (saveWebhookBtn) {
+    saveWebhookBtn.addEventListener("click", () => {
+      const url = $("#gsheetWebhookUrl")?.value?.trim() || "";
+      GSHEET_CONFIG.webhookUrl = url;
+      localStorage.setItem("pcs_gsheet_webhook", url);
+      toast("success","บันทึก URL แล้ว","จะใช้งาน URL นี้ในการ Sync");
+    });
+    const saved = localStorage.getItem("pcs_gsheet_webhook");
+    if (saved) { 
+      GSHEET_CONFIG.webhookUrl = saved; 
+      if ($("#gsheetWebhookUrl")) $("#gsheetWebhookUrl").value = saved;
+    }
+  }
+}
+
+async function syncFromGoogleSheets() {
+  if (!GSHEET_CONFIG.webhookUrl) {
+    toast("warning","ยังไม่ได้ตั้งค่า","กรุณาตั้งค่า Webhook URL ในหน้า 'ตั้งค่า' ก่อนครับ");
+    return;
+  }
+  const btn = $("#gsheetSyncBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "⏳ กำลัง Sync…"; }
+  try {
+    const res = await fetch(GSHEET_CONFIG.webhookUrl + "?action=getData", { method:"GET" });
+    if (!res.ok) throw new Error("Apps Script ตอบกลับ error");
+    const data = await res.json();
+    if (data.rows && data.rows.length) {
+      openModal("importPreviewModal");
+      renderImportPreview(data.rows);
+      const confirmBtn = $("#importConfirmBtn");
+      if (confirmBtn) confirmBtn.onclick = () => executeImport(data.rows);
+      const status = $("#importStatus");
+      if (status) status.textContent = `✅ ดึงข้อมูลสำเร็จ ${data.rows.length} รายการ — ตรวจสอบก่อน Import`;
+    } else {
+      toast("success","Sync เสร็จ","ไม่มีข้อมูลใหม่จาก Sheet");
+    }
+  } catch(e) {
+    toast("error","Sync ไม่สำเร็จ", e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = "🔄 Sync จาก Google Sheets"; }
+  }
+}
+
+function bindExcelImportEvents() {
+  const btn  = $("#excelImportBtn");
+  const inp  = $("#excelImportFile");
+  if (!btn || !inp) return;
+  btn.addEventListener("click", () => inp.click());
+  inp.addEventListener("change", () => {
+    const file = inp.files[0];
+    if (!file) return;
+    openModal("importPreviewModal");
+    processExcelImport(file);
+    inp.value = "";
+  });
+}
+
+async function processExcelImport(file) {
+  const previewBody = $("#importPreviewBody");
+  const importStatus = $("#importStatus");
+  if (importStatus) importStatus.textContent = "⏳ กำลัง parse ไฟล์…";
+  if (previewBody) previewBody.innerHTML = `<tr><td colspan="8" class="empty-state">กำลังอ่านไฟล์…</td></tr>`;
+  
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    if (typeof XLSX === "undefined") {
+      if (importStatus) importStatus.textContent = "⚠️ ต้องโหลด SheetJS ก่อน กรุณารีเฟรชหน้าเว็บ";
+      return;
+    }
+    
+    const wb = XLSX.read(arrayBuffer, { type:"array", cellDates:true });
+    const rows = parseExpenseSheets(wb);
+    
+    if (!rows.length) {
+      if (importStatus) importStatus.textContent = "⚠️ ไม่พบข้อมูลเบิกเงิน หรือรูปแบบไฟล์ไม่ตรง";
+      return;
+    }
+
+    if (importStatus) importStatus.textContent = `✅ พบ ${rows.length} รายการ — ตรวจสอบความถูกต้องก่อน Import`;
+    renderImportPreview(rows);
+    
+    const confirmBtn = $("#importConfirmBtn");
+    if (confirmBtn) confirmBtn.onclick = () => executeImport(rows);
+  } catch(e) {
+    if (importStatus) importStatus.textContent = `❌ Error: ${e.message}`;
+    console.error(e);
+  }
+}
+
+function parseExpenseSheets(wb) {
+  const results = [];
+  const sheetMap = {
+    "Axelra เบิกเงินทำงานSEA":   { mode:"freight", transport:"sea",   company:"AXELRA" },
+    "Axelra เบิกเงินทำงานAIR":   { mode:"freight", transport:"air",   company:"AXELRA" },
+    "Axelra เบิกเงินทำงานTRUCK": { mode:"freight", transport:"truck", company:"AXELRA" },
+    "Axelra เบิกเงินทำงานCARGO(นิวคา": { mode:"cargo", transport:"air", company:"AXELRA" },
+    "NNB เบิกเงินทำงาน ตู้เรือ SEA #":  { mode:"freight", transport:"sea",   company:"NNB" },
+    "NNB เบิกเงินทำงาน ตู้รถ TRUCK #":  { mode:"freight", transport:"truck", company:"NNB" },
+    "SHIP ต้องการเบิก":          { mode:"freight", transport:"sea",   company:"AXELRA" },
+  };
+
+  for (const [sheetName, meta] of Object.entries(sheetMap)) {
+    const ws = wb.Sheets[sheetName];
+    if (!ws) continue;
+    const raw = XLSX.utils.sheet_to_json(ws, { header:1, defval:"" });
+    let headerIdx = -1;
+    for (let i = 0; i < Math.min(raw.length,8); i++) {
+      const row = raw[i].map(c=>String(c||"").trim());
+      if (row.some(c=>c.includes("วันที่")||c.includes("SHIPMENT")||c.includes("ลำดับ"))) {
+        headerIdx = i; break;
+      }
+    }
+    if (headerIdx === -1) continue;
+    const headers = raw[headerIdx].map(c=>String(c||"").trim().replace(/\n/g," "));
+    
+    const colIdx = (keywords) => {
+      const arr = Array.isArray(keywords) ? keywords : [keywords];
+      for (const kw of arr) {
+        const i = headers.findIndex(h => h.includes(kw));
+        if (i >= 0) return i;
+      }
+      return -1;
+    };
+
+    const iDate      = colIdx(["วันที่เบิก","วันที่"]);
+    const iShipment  = colIdx(["SHIPMENT","SHIPMENT\nเลขงาน"]);
+    const iQO        = colIdx(["QUOTATIAN","QUOTATION","QO"]);
+    const iName      = colIdx(["ชื่อในไลน์","ชื่อผู้เบิก","ชื่อใน"]);
+    const iCategory  = colIdx(["หมวดหมู่"]);
+    const iItem      = colIdx(["รายการเบิกเงิน"]);
+    const iNote      = colIdx(["หมายเหตุ","REMARK"]);
+    const iAmount    = colIdx(["จำนวนเงิน\nยอดเบิก","จำนวนเงิน","ยอดเบิก"]);
+    const iStatus    = colIdx(["สถานะโอนเงิน","สถานะการโอน","สถานะ\nโอนเงิน"]);
+
+    for (let i = headerIdx+1; i < raw.length; i++) {
+      const row = raw[i];
+      let amtRaw = String(row[iAmount]||"").replace(/,/g,"").replace(/[^0-9.]/g,"");
+      let amt = parseFloat(amtRaw) || 0;
+      if (amt <= 0) continue;
+
+      let dateStr = row[iDate] instanceof Date ? row[iDate].toISOString().slice(0,10) : String(row[iDate]);
+      const item = String(row[iItem]||"").trim();
+      if (!item || item === "-" || item.startsWith("รวม")) continue;
+
+      results.push({
+        _sheet:        sheetName,
+        _company:      meta.company,
+        mode:          meta.mode,
+        transport_type:meta.transport,
+        date:          dateStr || todayISO(),
+        shipment_no:   String(row[iShipment]||"").trim(),
+        qo_number:     String(row[iQO]||"").trim(),
+        requester:     String(row[iName]||"").trim(),
+        category:      String(row[iCategory]||"ต้นทุนบริการ").trim(),
+        item:          item,
+        note:          String(row[iNote]||"").trim(),
+        amount_requested: amt,
+        transfer_status: String(row[iStatus]||"ต้องการเบิก").trim()
+      });
+    }
+  }
+  return results;
+}
+
+function renderImportPreview(rows) {
+  const tbody = $("#importPreviewBody");
+  if (!tbody) return;
+  tbody.innerHTML = rows.slice(0,50).map(r => `
+    <tr>
+      <td><span class="badge ${r.transport_type==='sea'?'blue':r.transport_type==='air'?'red':'yellow'}">${r.transport_type?.toUpperCase()||'-'}</span></td>
+      <td>${escapeHtml(r._company)}</td>
+      <td>${escapeHtml(r.date)}</td>
+      <td>${escapeHtml(r.shipment_no||'-')}</td>
+      <td>${escapeHtml(r.requester||'-')}</td>
+      <td>${escapeHtml(r.item)}</td>
+      <td class="text-right">${formatCurrency(r.amount_requested)}</td>
+      <td><span class="badge gray">${escapeHtml(r.transfer_status)}</span></td>
+    </tr>
+  `).join("");
+  if (rows.length > 50) {
+    tbody.innerHTML += `<tr><td colspan="8" class="empty-state">…และอีก ${rows.length-50} รายการ</td></tr>`;
+  }
+}
+
+async function executeImport(rows) {
+  const btn = $("#importConfirmBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "กำลัง Import…"; }
+  const status = $("#importStatus");
+
+  let success = 0, skip = 0, errors = 0;
+  const existingKeys = new Set([
+    ...appState.expenseRequests.map(r=>`${r.shipment_id||''}|${r.item}|${r.date}|${r.amount_requested}`),
+    ...appState.freightItems.map(r=>`${r.shipment_id||''}|${r.item}|${r.date}|${r.amount_requested}`)
+  ]);
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (status) status.textContent = `⏳ กำลัง import ${i+1}/${rows.length}…`;
+
+    let shipmentId = null;
+    if (row.shipment_no && row.mode === "freight") {
+      const found = appState.freightShipments.find(s=>s.shipment_no===row.shipment_no);
+      if (found) shipmentId = found.id;
+      else {
+        try {
+          const newShipment = { id:generateId("shipment"), shipment_no:row.shipment_no, date:row.date, customer_name:row.requester||row.shipment_no, transport_type:row.transport_type, origin:"", destination:"", owner:row.requester||"", note:`Auto-created from import`, status:"active", created_by:"import" };
+          await sb.insert("freight_shipments", newShipment);
+          appState.freightShipments.unshift(newShipment);
+          shipmentId = newShipment.id;
+        } catch(e) { }
+      }
+    }
+
+    const key = `${shipmentId||''}|${row.item}|${row.date}|${row.amount_requested}`;
+    if (existingKeys.has(key)) { skip++; continue; }
+    existingKeys.add(key);
+
+    const now = new Date().toISOString();
+    const master = getMasterByItem(row.item);
+    
+    const newReq = {
+      id: generateId(row.mode==="freight"?"freight-item":"cargo"),
+      req_no: generateReqNo(row.mode),
+      mode: row.mode,
+      shipment_id: shipmentId,
+      qo_number: row.qo_number,
+      transport_type: row.transport_type,
+      term: "",
+      date: row.date,
+      draft_created_at: now,
+      submitted_at: now,
+      requester: row.requester,
+      requester_role: "staff",
+      category: row.category,
+      item: row.item,
+      topic: master?.topic || row.item,
+      service_cost_id: master?.service_cost_id || null,
+      note: row.note,
+      amount_requested: row.amount_requested,
+      amount_approved: row.amount_requested,
+      amount_used: 0,
+      amount_covered: 0,
+      bank: "",
+      account_name: "",
+      account_no: "",
+      transfer_date: row.date,
+      transfer_status: row.transfer_status,
+      receipt_status: "รอรับใบเสร็จ",
+      need_receipt: master?.need_receipt || false,
+      need_invoice: false,
+      need_withholding: master?.need_withholding || false,
+      need_slip: master?.need_slip || true,
+      has_receipt: false,
+      has_invoice: false,
+      has_withholding: false,
+      has_slip: row.transfer_status === "โอนแล้ว",
+      slip_filename: "",
+      slip_uploaded_at: null,
+      statement_matched: false,
+      statement_match_confidence: 0,
+      status: row.transfer_status === "โอนแล้ว" ? "waiting_statement" : "draft",
+      import_source: row._sheet,
+    };
+
+    try {
+      await sb.insert("expense_requests", newReq);
+      if (row.mode==="freight") appState.freightItems.unshift(newReq);
+      else appState.expenseRequests.unshift(newReq);
+      success++;
+    } catch(e) { errors++; }
+  }
+
+  await addLog("EXCEL_IMPORT","BULK",`Import ${success} รายการ (ข้าม ${skip} ซ้ำ, error ${errors})`);
+  renderAllTables();
+  
+  if (btn) { btn.disabled = false; btn.textContent = "✅ ยืนยันนำเข้าข้อมูล"; }
+  if (status) status.textContent = `✅ Import สำเร็จ ${success} รายการ | ข้าม ${skip} ซ้ำ | Error ${errors}`;
+  toast("success", `Import เสร็จแล้ว`, `${success} รายการใหม่ | ${skip} ซ้ำ`);
+  
+  setTimeout(() => {
+    closeModal("importPreviewModal");
+    if (btn) btn.textContent = "ยืนยันนำเข้าข้อมูล";
+  }, 2000);
+}
