@@ -547,7 +547,7 @@ function bindFreightFormEvents() {
       const category    = $("#freightItemCategory").value;
       const item        = $("#freightItemItem").value;
       const master      = getMasterByItem(item);
-      const amount      = Number($("#freightItemAmount").value || 0);
+      const amount      = Number($("#freightItemAmountRequested").value || 0);
       const qoNumber    = $("#freightItemQoNumber")?.value.trim() || "";
 
       if (!category || !item || !master) { toast("warning","ข้อมูลไม่ครบ","กรุณาเลือกหมวดหมู่และรายการเบิก"); return; }
