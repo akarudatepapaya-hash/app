@@ -1938,7 +1938,6 @@ function parseExpenseSheets(wb) {
     "Axelra เบิกเงินค่าสินค้า (ฝากจ่": { mode:"cargo", transport:"other", company:"AXELRA" },
     "Axelra เบิกเงินทำงานCARGO (NNB)": { mode:"cargo", transport:"other", company:"AXELRA" },
     "NNBเบิกเงินทั่วไป  #5122":   { mode:"cargo", transport:"other", company:"NNB" },
-    "NNBเบิกเงินสั่งซื้อสินค้าNNB - ": { mode:"cargo", transport:"other", company:"NNB" }
   };
 
   for (const [sheetName, meta] of Object.entries(sheetMap)) {
