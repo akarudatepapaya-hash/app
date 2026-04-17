@@ -2247,7 +2247,7 @@ async function executeSilentImport(newRows) {
       slip_uploaded_at: null,
       statement_matched: false,
       statement_match_confidence: 0,
-      status: (row.transfer_status === "โอนแล้ว" || row.transfer_status === "จ่ายแล้ว") ? "waiting_statement" : "draft",
+      status: "pending",
       import_source: row._sheet,
     };
 
