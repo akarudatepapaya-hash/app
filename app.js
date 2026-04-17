@@ -1923,6 +1923,7 @@ async function processExcelImport(file) {
 function parseExpenseSheets(wb) {
   const results = [];
   const sheetMap = {
+    // --- กลุ่มของเดิม ---
     "Axelra เบิกเงินทำงานSEA":   { mode:"freight", transport:"sea",   company:"AXELRA" },
     "Axelra เบิกเงินทำงานAIR":   { mode:"freight", transport:"air",   company:"AXELRA" },
     "Axelra เบิกเงินทำงานTRUCK": { mode:"freight", transport:"truck", company:"AXELRA" },
@@ -1930,6 +1931,14 @@ function parseExpenseSheets(wb) {
     "NNB เบิกเงินทำงาน ตู้เรือ SEA #":  { mode:"freight", transport:"sea",   company:"NNB" },
     "NNB เบิกเงินทำงาน ตู้รถ TRUCK #":  { mode:"freight", transport:"truck", company:"NNB" },
     "SHIP ต้องการเบิก":          { mode:"freight", transport:"sea",   company:"AXELRA" },
+
+    // --- กลุ่มชีทย่อยที่เพิ่มให้ใหม่ ---
+    "Axelraเบิกเงินทั่วไป ":      { mode:"cargo", transport:"other", company:"AXELRA" },
+    "Axelra เบิกเงินคืนภาษีโกดังจีน": { mode:"cargo", transport:"other", company:"AXELRA" },
+    "Axelra เบิกเงินค่าสินค้า (ฝากจ่": { mode:"cargo", transport:"other", company:"AXELRA" },
+    "Axelra เบิกเงินทำงานCARGO (NNB)": { mode:"cargo", transport:"other", company:"AXELRA" },
+    "NNBเบิกเงินทั่วไป  #5122":   { mode:"cargo", transport:"other", company:"NNB" },
+    "NNBเบิกเงินสั่งซื้อสินค้าNNB - ": { mode:"cargo", transport:"other", company:"NNB" }
   };
 
   for (const [sheetName, meta] of Object.entries(sheetMap)) {
