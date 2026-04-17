@@ -121,11 +121,6 @@
             <span>เทียบ Statement</span>
           </button>
 
-          <button class="menu-item" data-page="revenue-page" data-role-only="admin,accounting,manager">
-            <span class="menu-icon">฿</span>
-            <span>รายรับ / กำไร</span>
-          </button>
-
           <button class="menu-item" data-page="documents-page">
             <span class="menu-icon">⎙</span>
             <span>พิมพ์ชุดเอกสาร</span>
@@ -170,20 +165,16 @@
             </div>
           </div>
 
-          <div class="global-search">
-            <input type="text" id="globalSearch" placeholder="ค้นหาเลขที่เบิก / ผู้เบิก / shipment / หมวด / รายการ / ธนาคาร / หมายเหตุ" />
-          </div>
-
           <div class="topbar-right">
+            <div class="global-search">
+              <input
+                type="text"
+                id="globalSearch"
+                placeholder="ค้นหาเลขที่เบิก / ผู้เบิก / shipment / หมวด / รายการ / ธนาคาร / หมายเหตุ"
+              />
+            </div>
+
             <div class="topbar-actions-group">
-              <button id="gsheetSyncBtn" class="btn btn-secondary">
-                🔄 Sync จาก Google Sheets
-              </button>
-              <button id="excelImportBtn" class="btn btn-outline">
-                📁 นำเข้าไฟล์ Excel
-              </button>
-              <input type="file" id="excelImportFile" accept=".xlsx, .xls" style="display:none;" />
-              
               <button class="btn btn-secondary" id="openCreateShipmentModal">
                 + สร้าง Shipment
               </button>
@@ -234,33 +225,6 @@
             </div>
           </div>
 
-          <!-- Phase 3 Revenue Stats -->
-          <div class="stats-grid" style="margin-bottom:18px">
-            <div class="stat-card success">
-              <div class="stat-card-label">รายรับรวม (ยอดลูกค้า)</div>
-              <div class="stat-card-value" id="sumTotalRevenue">฿0.00</div>
-              <div class="stat-card-note">ยอดขายรวมทุก Shipment</div>
-            </div>
-
-            <div class="stat-card">
-              <div class="stat-card-label">กำไรขั้นต้นรวม</div>
-              <div class="stat-card-value" id="sumGrossProfit">฿0.00</div>
-              <div class="stat-card-note">รายรับ - ต้นทุนรวม</div>
-            </div>
-
-            <div class="stat-card warning">
-              <div class="stat-card-label">ลูกหนี้ค้างรับ</div>
-              <div class="stat-card-value" id="sumPendingRevenue">฿0.00</div>
-              <div class="stat-card-note">ยอดที่ลูกค้ายังไม่ชำระ</div>
-            </div>
-
-            <div class="stat-card">
-              <div class="stat-card-label">เจ้าหนี้ค้างจ่าย</div>
-              <div class="stat-card-value" id="sumRequestAmount2">฿0.00</div>
-              <div class="stat-card-note">รายการเบิกที่ยังค้างอยู่</div>
-            </div>
-          </div>
-
           <div class="dashboard-top-grid">
             <div class="panel">
               <div class="panel-header">
@@ -292,24 +256,8 @@
 
                 <div class="chart-placeholder">
                   <div class="chart-placeholder__head">
-                    <strong>กำไร / ขาดทุน ต่อ Shipment</strong>
-                    <span>แสดง 10 Shipment ล่าสุดที่มีข้อมูลรายรับ</span>
-                  </div>
-                  <div class="table-wrap" style="margin-top:12px;min-height:auto">
-                    <table class="data-table" style="min-width:700px">
-                      <thead>
-                        <tr>
-                          <th>Shipment No.</th>
-                          <th>ลูกค้า</th>
-                          <th>ขนส่ง</th>
-                          <th class="text-right">รายรับ</th>
-                          <th class="text-right">ต้นทุน</th>
-                          <th class="text-right">กำไร</th>
-                          <th>สถานะ</th>
-                        </tr>
-                      </thead>
-                      <tbody id="dashboardProfitTableBody"></tbody>
-                    </table>
+                    <strong>พื้นที่กราฟเปรียบเทียบ</strong>
+                    <span>JS จะ render สรุปตามหมวด / ต้นทุนบริการ / ผู้เบิก / shipment</span>
                   </div>
                 </div>
               </div>
@@ -407,7 +355,6 @@
                     <th>รายการเบิก</th>
                     <th>หัวข้อ</th>
                     <th>ต้นทุนบริการ</th>
-                    <th>QO</th>
                     <th class="text-right">จำนวนเงิน</th>
                     <th>เอกสาร</th>
                     <th>Statement</th>
@@ -489,11 +436,9 @@
                     <th>วันที่</th>
                     <th>ลูกค้า / ผู้ดูแล</th>
                     <th>ประเภทขนส่ง</th>
-                    <th>Term</th>
                     <th>ต้นทาง - ปลายทาง</th>
                     <th>จำนวนรายการย่อย</th>
-                    <th class="text-right">ยอดต้นทุน</th>
-                    <th class="text-right">กำไร</th>
+                    <th class="text-right">ยอดรวม</th>
                     <th>เอกสาร</th>
                     <th>สถานะ</th>
                     <th>จัดการ</th>
@@ -549,28 +494,21 @@
             <div class="panel-header">
               <div>
                 <h2>เทียบ Statement</h2>
-                <p>อัปโหลด CSV จาก KBIZ → ระบบ parse อัตโนมัติ → Auto-match กับรายการเบิก</p>
-              </div>
-              <div class="panel-actions">
-                <button class="btn btn-primary" id="kbizUploadBtn">อัปโหลด KBIZ CSV</button>
-                <input type="file" id="kbizFileInput" accept=".csv" style="display:none" />
+                <p>ใช้ตรวจทั้งรายการคาร์โก้เดี่ยว และรายการย่อยในระบบเฟรท</p>
               </div>
             </div>
-
-            <div class="stmt-summary-bar" id="statementSummaryBar"></div>
 
             <div class="table-wrap">
               <table class="data-table">
                 <thead>
                   <tr>
-                    <th>วันที่ / เวลา</th>
-                    <th>ประเภทรายการ</th>
+                    <th>วันที่</th>
                     <th>รายละเอียด</th>
-                    <th class="text-right">ถอนเงิน (ออก)</th>
-                    <th class="text-right">ฝากเงิน (เข้า)</th>
-                    <th>ทิศทาง</th>
+                    <th class="text-right">จำนวนเงิน</th>
                     <th>จับคู่กับ</th>
+                    <th>ประเภท</th>
                     <th>ความมั่นใจ</th>
+                    <th>จัดการ</th>
                   </tr>
                 </thead>
                 <tbody id="statementTableBody"></tbody>
@@ -608,88 +546,16 @@
           </div>
         </section>
 
-        <!-- REVENUE PAGE (Phase 3) -->
-        <section class="page-section" id="revenue-page">
-          <div class="panel">
-            <div class="panel-header">
-              <div>
-                <h2>รายรับ / กำไรต่อ Shipment</h2>
-                <p>บันทึกยอดลูกค้าจ่าย • คำนวณกำไรขั้นต้นต่อ Shipment • ติดตามลูกหนี้ค้างรับ • ใบหัก ณ ที่จ่ายจากลูกค้า</p>
-              </div>
-              <div class="panel-actions">
-                <button class="btn btn-primary" id="openCreateRevenueModal">+ บันทึกรายรับ</button>
-              </div>
-            </div>
-
-            <div class="stmt-summary-bar" id="revenueSummaryBar"></div>
-
-            <div class="panel-body">
-              <div class="filter-grid" style="grid-template-columns:repeat(2,minmax(0,1fr))">
-                <label class="field">
-                  <span>ค้นหา</span>
-                  <input type="text" id="revenueSearchInput" placeholder="ค้นหาเลขที่ / Shipment / QO / ลูกค้า" />
-                </label>
-                <label class="field">
-                  <span>สถานะ</span>
-                  <select id="revenueStatusFilter">
-                    <option value="">ทั้งหมด</option>
-                    <option value="pending">รอรับชำระ</option>
-                    <option value="partial">รับบางส่วน</option>
-                    <option value="received">รับชำระแล้ว</option>
-                  </select>
-                </label>
-              </div>
-            </div>
-
-            <div class="table-wrap">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>เลขที่รายรับ</th>
-                    <th>วันที่</th>
-                    <th>Shipment</th>
-                    <th>ลูกค้า</th>
-                    <th>QO</th>
-                    <th>ขนส่ง</th>
-                    <th class="text-right">ยอดขาย</th>
-                    <th class="text-right">รับแล้ว</th>
-                    <th class="text-right">ค้างรับ</th>
-                    <th>ใบหัก ณ ที่จ่าย</th>
-                    <th>สถานะ</th>
-                    <th>จัดการ</th>
-                  </tr>
-                </thead>
-                <tbody id="revenueTableBody"></tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
         <!-- SETTINGS PAGE -->
         <section class="page-section" id="settings-page">
-            <div class="settings-grid">
-                <div class="panel">
-                    <div class="panel-header">
-                        <h2>การเชื่อมต่อ Google Sheets</h2>
-                        <p>ตั้งค่า Webhook เพื่อดึงข้อมูลจากชีทงานพนักงานแบบ Real-time</p>
-                    </div>
-                    <div class="panel-body">
-                        <div class="field">
-                            <span>Google Apps Script Webhook URL</span>
-                            <div style="display:flex; gap:10px;">
-                                <input type="text" id="gsheetWebhookUrl" placeholder="วางลิงก์ https://script.google.com/macros/s/.../exec ที่ได้จากการ Deploy">
-                                <button id="saveWebhookUrl" class="btn btn-primary" style="min-width: 100px;">บันทึก</button>
-                            </div>
-                        </div>
-                    </div>
-            </div>
+          <div class="settings-grid">
             <div class="panel">
-                <div class="panel-header">
-                    <div>
-                        <h2>Role และสิทธิ์</h2>
-                        <p>กำหนดสิทธิ์เข้าถึงเมนูและการทำรายการ</p>
-                    </div>
+              <div class="panel-header">
+                <div>
+                  <h2>Role และสิทธิ์</h2>
+                  <p>กำหนดสิทธิ์เข้าถึงเมนูและการทำรายการ</p>
                 </div>
+              </div>
 
               <div class="table-wrap">
                 <table class="data-table">
@@ -701,7 +567,6 @@
                       <th>เฟรท</th>
                       <th>Statement</th>
                       <th>เอกสาร</th>
-                      <th>รายรับ</th>
                       <th>ตั้งค่า</th>
                       <th>ผู้ใช้งาน</th>
                       <th>Log</th>
@@ -912,10 +777,6 @@
         <form id="createRequestForm" class="modal-body">
           <input type="hidden" id="requestMode" value="cargo" />
 
-          <div class="required-fields-banner">
-            <strong>⚠️ ต้องกรอกก่อน Submit:</strong> QO Number + แนบสลิป (บังคับทุกรายการ)
-          </div>
-
           <div class="form-grid form-grid--2">
             <label class="field">
               <span>วันที่</span>
@@ -925,30 +786,6 @@
             <label class="field">
               <span>ผู้เบิก</span>
               <input type="text" id="requestRequester" placeholder="ชื่อผู้เบิก" />
-            </label>
-
-            <label class="field">
-              <span>เลข QO (Quotation จาก PEAK) <span class="required-star">*</span></span>
-              <input type="text" id="requestQoNumber" placeholder="เช่น QO-2026-0001" />
-            </label>
-
-            <label class="field">
-              <span>Term</span>
-              <select id="requestTerm">
-                <option value="">เลือก Term</option>
-                <option value="CIF">CIF</option>
-                <option value="FOB">FOB</option>
-              </select>
-            </label>
-
-            <label class="field">
-              <span>ประเภทขนส่ง</span>
-              <select id="requestTransportType">
-                <option value="">เลือกประเภทขนส่ง</option>
-                <option value="sea">เรือ</option>
-                <option value="truck">รถ</option>
-                <option value="air">แอร์</option>
-              </select>
             </label>
 
             <label class="field">
@@ -998,16 +835,6 @@
               <span>เลขบัญชีรับเงิน</span>
               <input type="text" id="requestAccountNo" placeholder="เลขบัญชี" />
             </label>
-          </div>
-
-          <div class="slip-upload-box">
-            <strong>📎 แนบสลิป <span class="required-star">*</span></strong>
-            <p>บังคับแนบสลิปการโอนก่อน submit ทุกครั้ง</p>
-            <div class="slip-upload-row">
-              <label class="btn btn-secondary slip-upload-label" for="requestSlipFile">เลือกไฟล์สลิป</label>
-              <input type="file" id="requestSlipFile" accept="image/*,application/pdf" style="display:none" />
-              <span id="requestSlipLabel" class="slip-filename">ยังไม่ได้แนบสลิป</span>
-            </div>
           </div>
 
           <label class="field">
@@ -1078,15 +905,6 @@
             </label>
 
             <label class="field">
-              <span>Term</span>
-              <select id="shipmentTerm">
-                <option value="">เลือก Term</option>
-                <option value="CIF">CIF</option>
-                <option value="FOB">FOB</option>
-              </select>
-            </label>
-
-            <label class="field">
               <span>สถานะ Shipment</span>
               <select id="shipmentStatus">
                 <option value="draft">Draft</option>
@@ -1134,10 +952,6 @@
             <span id="freightItemSelectedShipmentText">ยังไม่ได้เลือก Shipment</span>
           </div>
 
-          <div class="required-fields-banner">
-            <strong>⚠️ ต้องกรอกก่อน Submit:</strong> QO Number + แนบสลิป (บังคับทุกรายการ)
-          </div>
-
           <div class="form-grid form-grid--2">
             <label class="field">
               <span>วันที่</span>
@@ -1147,20 +961,6 @@
             <label class="field">
               <span>ผู้เบิก</span>
               <input type="text" id="freightItemRequester" placeholder="ชื่อผู้เบิก" />
-            </label>
-
-            <label class="field">
-              <span>เลข QO (Quotation จาก PEAK) <span class="required-star">*</span></span>
-              <input type="text" id="freightItemQoNumber" placeholder="เช่น QO-2026-0001" />
-            </label>
-
-            <label class="field">
-              <span>Term (ดึงจาก Shipment)</span>
-              <select id="freightItemTerm">
-                <option value="">เลือก Term</option>
-                <option value="CIF">CIF</option>
-                <option value="FOB">FOB</option>
-              </select>
             </label>
 
             <label class="field">
@@ -1210,16 +1010,6 @@
               <span>เลขบัญชีรับเงิน</span>
               <input type="text" id="freightItemAccountNo" placeholder="เลขบัญชี" />
             </label>
-          </div>
-
-          <div class="slip-upload-box">
-            <strong>📎 แนบสลิป <span class="required-star">*</span></strong>
-            <p>บังคับแนบสลิปการโอนก่อน submit ทุกครั้ง</p>
-            <div class="slip-upload-row">
-              <label class="btn btn-secondary slip-upload-label" for="freightItemSlipFile">เลือกไฟล์สลิป</label>
-              <input type="file" id="freightItemSlipFile" accept="image/*,application/pdf" style="display:none" />
-              <span id="freightItemSlipLabel" class="slip-filename">ยังไม่ได้แนบสลิป</span>
-            </div>
           </div>
 
           <label class="field">
@@ -1529,162 +1319,10 @@
       </div>
     </div>
 
-    <!-- CREATE REVENUE MODAL (Phase 3) -->
-    <div class="modal" id="createRevenueModal">
-      <div class="modal-backdrop" data-close-modal="createRevenueModal"></div>
-      <div class="modal-dialog modal-lg">
-        <div class="modal-header">
-          <div>
-            <h3>บันทึกรายรับ</h3>
-            <p>บันทึกยอดที่ลูกค้าจ่าย ผูกกับ Shipment เพื่อคำนวณกำไร</p>
-          </div>
-          <button class="modal-close" data-close-modal="createRevenueModal">×</button>
-        </div>
-
-        <form id="createRevenueForm" class="modal-body">
-          <div class="form-grid form-grid--2">
-            <label class="field">
-              <span>วันที่รับเงิน</span>
-              <input type="date" id="revenueDate" />
-            </label>
-
-            <label class="field">
-              <span>Shipment ที่ผูก <span class="required-star">*</span></span>
-              <select id="revenueShipmentId">
-                <option value="">เลือก Shipment</option>
-              </select>
-            </label>
-
-            <label class="field">
-              <span>เลข QO</span>
-              <input type="text" id="revenueQoNumber" placeholder="เช่น QO-2026-0001" />
-            </label>
-
-            <label class="field">
-              <span>เลข Invoice</span>
-              <input type="text" id="revenueInvoiceNumber" placeholder="เช่น INV-2026-0001" />
-            </label>
-
-            <label class="field">
-              <span>ชื่อลูกค้า</span>
-              <input type="text" id="revenueCustomerName" placeholder="ดึงอัตโนมัติจาก Shipment" />
-            </label>
-
-            <label class="field">
-              <span>ประเภทขนส่ง</span>
-              <select id="revenueTransportType">
-                <option value="">เลือก</option>
-                <option value="sea">เรือ</option>
-                <option value="truck">รถ</option>
-                <option value="air">แอร์</option>
-              </select>
-            </label>
-
-            <label class="field">
-              <span>Term</span>
-              <select id="revenueTerm">
-                <option value="">เลือก Term</option>
-                <option value="CIF">CIF</option>
-                <option value="FOB">FOB</option>
-                <option value="EXW">EXW</option>
-                <option value="DPU">DPU</option>
-              </select>
-            </label>
-
-            <label class="field">
-              <span>ประเภทชำระ</span>
-              <select id="revenuePaymentType">
-                <option value="เงินสด">เงินสด</option>
-                <option value="โอน">โอน</option>
-                <option value="15วัน">15 วัน</option>
-                <option value="30วัน">30 วัน</option>
-                <option value="เครดิต">เครดิต</option>
-              </select>
-            </label>
-
-            <label class="field">
-              <span>ยอดขาย / ค่าบริการ (ราคาขาย) <span class="required-star">*</span></span>
-              <input type="number" id="revenueAmount" placeholder="0.00" min="0" step="0.01" />
-            </label>
-
-            <label class="field">
-              <span>ยอดที่รับชำระแล้ว</span>
-              <input type="number" id="revenueAmountReceived" placeholder="0.00 (เว้นว่างหากยังไม่รับ)" min="0" step="0.01" />
-            </label>
-
-            <label class="field">
-              <span>จำนวนวันเครดิต</span>
-              <input type="number" id="revenueCreditDays" placeholder="0" min="0" />
-            </label>
-          </div>
-
-          <div style="margin-top:14px">
-            <label class="field field-checkbox">
-              <input type="checkbox" id="revenueHasWithholdingFromCustomer" />
-              <span>ได้รับใบหัก ณ ที่จ่ายจากลูกค้าแล้ว</span>
-            </label>
-            <div id="revenueWithholdingField" class="is-hidden" style="margin-top:12px">
-              <label class="field">
-                <span>จำนวนหัก ณ ที่จ่ายจากลูกค้า</span>
-                <input type="number" id="revenueWithholdingAmount" placeholder="0.00" min="0" step="0.01" />
-              </label>
-            </div>
-          </div>
-
-          <label class="field" style="margin-top:14px">
-            <span>หมายเหตุ</span>
-            <textarea id="revenueNote" rows="3" placeholder="รายละเอียดเพิ่มเติม เช่น เลข CTNS / CBM / สินค้า"></textarea>
-          </label>
-
-          <div class="modal-footer">
-            <button type="button" class="btn btn-outline" data-close-modal="createRevenueModal">ยกเลิก</button>
-            <button type="submit" class="btn btn-primary">บันทึกรายรับ</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
     <!-- TOAST -->
     <div class="toast-stack" id="toastStack"></div>
   </div>
 
-  <div id="importPreviewModal" class="modal">
-      <div class="modal-backdrop" data-close-modal="importPreviewModal"></div>
-      <div class="modal-dialog modal-xl"> 
-          <div class="modal-header">
-              <div>
-                  <h3>ตรวจสอบข้อมูลก่อนนำเข้า</h3>
-                  <p id="importStatus">พบรายการใหม่จากไฟล์/Google Sheets</p>
-              </div>
-              <button class="modal-close" data-close-modal="importPreviewModal">&times;</button>
-          </div>
-          <div class="modal-body">
-              <div class="table-wrap" style="max-height: 500px; overflow-y: auto;">
-                  <table class="data-table">
-                      <thead>
-                          <tr>
-                              <th>ประเภท</th>
-                              <th>บริษัท</th>
-                              <th>วันที่</th>
-                              <th>Shipment No.</th>
-                              <th>ผู้เบิก</th>
-                              <th>รายการ</th>
-                              <th class="text-right">ยอดเบิก</th>
-                              <th>สถานะโอน</th>
-                          </tr>
-                      </thead>
-                      <tbody id="importPreviewBody">
-                          </tbody>
-                  </table>
-              </div>
-          </div>
-          <div class="modal-footer">
-              <button class="btn btn-outline" data-close-modal="importPreviewModal">ยกเลิก</button>
-              <button id="importConfirmBtn" class="btn btn-primary">ยืนยันนำเข้าข้อมูล</button>
-          </div>
-      </div>
-  </div>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
