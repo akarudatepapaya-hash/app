@@ -1983,13 +1983,20 @@ function parseExpenseSheets(wb) {
       const item = String(row[iItem]||"").trim();
       if (!item || item === "-" || item.startsWith("รวม")) continue;
 
+      // --- 📌 จุดที่แก้ตรรกะ Mode (ดักเลขตู้) ---
+      let shipmentNo = String(row[iShipment]||"").trim();
+      let currentRowMode = meta.mode;
+      if (shipmentNo !== "" && shipmentNo !== "-") {
+        currentRowMode = "freight"; // ถ้ามีเลขตู้ บังคับให้เป็นโหมด Freight
+      }
+
       results.push({
         _sheet:        sheetName,
         _company:      meta.company,
-        mode:          meta.mode,
+        mode:          currentRowMode, // ใช้โหมดที่เราเช็คแล้วแทน
         transport_type:meta.transport,
         date:          dateStr || todayISO(),
-        shipment_no:   String(row[iShipment]||"").trim(),
+        shipment_no:   shipmentNo,
         qo_number:     String(row[iQO]||"").trim(),
         requester:     String(row[iName]||"").trim(),
         category:      String(row[iCategory]||"ต้นทุนบริการ").trim(),
@@ -2099,7 +2106,7 @@ async function executeImport(rows) {
       slip_uploaded_at: null,
       statement_matched: false,
       statement_match_confidence: 0,
-      status: row.transfer_status === "โอนแล้ว" ? "waiting_statement" : "draft",
+      status: "pending",
       import_source: row._sheet,
     };
 
@@ -2122,4 +2129,133 @@ async function executeImport(rows) {
     closeModal("importPreviewModal");
     if (btn) btn.textContent = "ยืนยันนำเข้าข้อมูล";
   }, 2000);
+}
+
+// ============================================================
+// AUTO-SYNC (ทำงานหลังบ้านทุก 1 นาที)
+// ============================================================
+// สั่งให้ระบบเรียกฟังก์ชัน silentAutoSync ทุกๆ 60,000 มิลลิวินาที (1 นาที)
+setInterval(silentAutoSync, 60000); 
+
+async function silentAutoSync() {
+  // ถ้าบัญชียังไม่ได้ใส่ลิงก์ Webhook ในหน้าตั้งค่า ให้ข้ามไปก่อน
+  if (!GSHEET_CONFIG.webhookUrl) return; 
+
+  try {
+    const res = await fetch(GSHEET_CONFIG.webhookUrl + "?action=getData", { method:"GET" });
+    if (!res.ok) return;
+    const data = await res.json();
+    
+    if (data.rows && data.rows.length) {
+      // ดึงรายการที่มีอยู่แล้วในระบบมาเช็ค (ป้องกันข้อมูลเบิ้ล)
+      const existingKeys = new Set([
+        ...appState.expenseRequests.map(r=>`${r.shipment_id||''}|${r.item}|${r.date}|${r.amount_requested}`),
+        ...appState.freightItems.map(r=>`${r.shipment_id||''}|${r.item}|${r.date}|${r.amount_requested}`)
+      ]);
+
+      let newRows = [];
+      for (let row of data.rows) {
+        let shipmentId = null;
+        if (row.shipment_no && row.mode === "freight") {
+          const found = appState.freightShipments.find(s=>s.shipment_no===row.shipment_no);
+          if (found) shipmentId = found.id;
+        }
+        
+        // สร้าง Key ของแต่ละบรรทัดเพื่อเช็คความซ้ำซ้อน
+        const key = `${shipmentId||''}|${row.item}|${row.date}|${row.amount_requested}`;
+        
+        // ถ้าเป็นข้อมูลใหม่ที่ยังไม่เคยมีในระบบจริงๆ ถึงจะเอามาทำต่อ
+        if (!existingKeys.has(key)) {
+          newRows.push(row);
+          existingKeys.add(key); 
+        }
+      }
+
+      // ถ้าเจอของใหม่! ให้แอบนำเข้าเงียบๆ ไม่ต้องเปิดหน้าต่างให้รำคาญ
+      if (newRows.length > 0) {
+        await executeSilentImport(newRows);
+        renderAllTables(); // สั่งรีเฟรชตารางหน้าเว็บอัตโนมัติ
+        toast("success", "🔄 มีข้อมูลใหม่เข้าระบบ", `ดึงข้อมูลอัตโนมัติสำเร็จ ${newRows.length} รายการ`);
+      }
+    }
+  } catch(e) {
+    console.warn("Auto-sync error:", e.message); // แอบพ่น Error ใน Console เผื่อลิงก์พัง
+  }
+}
+
+// ฟังก์ชันนำเข้าข้อมูลลงฐานข้อมูลแบบเงียบๆ
+async function executeSilentImport(newRows) {
+  for (let i = 0; i < newRows.length; i++) {
+    const row = newRows[i];
+    let shipmentId = null;
+
+    // 1. เช็คและสร้างตู้ Shipment ถ้ายังไม่มีในระบบ
+    if (row.shipment_no && row.mode === "freight") {
+      const found = appState.freightShipments.find(s=>s.shipment_no===row.shipment_no);
+      if (found) shipmentId = found.id;
+      else {
+        try {
+          const newShipment = { id:generateId("shipment"), shipment_no:row.shipment_no, date:row.date, customer_name:row.requester||row.shipment_no, transport_type:row.transport_type, origin:"", destination:"", owner:row.requester||"", note:`Auto-created from Auto-Sync`, status:"active", created_by:"auto-sync" };
+          await sb.insert("freight_shipments", newShipment);
+          appState.freightShipments.unshift(newShipment);
+          shipmentId = newShipment.id;
+        } catch(e) {}
+      }
+    }
+
+    const now = new Date().toISOString();
+    const master = getMasterByItem(row.item);
+    
+    // 2. จัดเตรียมข้อมูลรายการเบิกเพื่อรอโยนเข้าฐานข้อมูล
+    const newReq = {
+      id: generateId(row.mode==="freight"?"freight-item":"cargo"),
+      req_no: generateReqNo(row.mode),
+      mode: row.mode,
+      shipment_id: shipmentId,
+      qo_number: row.qo_number,
+      transport_type: row.transport_type,
+      term: "",
+      date: row.date,
+      draft_created_at: now,
+      submitted_at: now,
+      requester: row.requester,
+      requester_role: "staff",
+      category: row.category,
+      item: row.item,
+      topic: master?.topic || row.item,
+      service_cost_id: master?.service_cost_id || null,
+      note: row.note,
+      amount_requested: row.amount_requested,
+      amount_approved: row.amount_requested,
+      amount_used: 0,
+      amount_covered: 0,
+      bank: "",
+      account_name: "",
+      account_no: "",
+      transfer_date: row.date,
+      transfer_status: row.transfer_status,
+      receipt_status: "รอรับใบเสร็จ",
+      need_receipt: master?.need_receipt || false,
+      need_invoice: false,
+      need_withholding: master?.need_withholding || false,
+      need_slip: master?.need_slip || true,
+      has_receipt: false,
+      has_invoice: false,
+      has_withholding: false,
+      has_slip: row.transfer_status === "โอนแล้ว" || row.transfer_status === "จ่ายแล้ว",
+      slip_filename: "",
+      slip_uploaded_at: null,
+      statement_matched: false,
+      statement_match_confidence: 0,
+      status: (row.transfer_status === "โอนแล้ว" || row.transfer_status === "จ่ายแล้ว") ? "waiting_statement" : "draft",
+      import_source: row._sheet,
+    };
+
+    // 3. ยิงเข้า Database (Supabase)
+    try {
+      await sb.insert("expense_requests", newReq);
+      if (row.mode==="freight") appState.freightItems.unshift(newReq);
+      else appState.expenseRequests.unshift(newReq);
+    } catch(e) {}
+  }
 }
