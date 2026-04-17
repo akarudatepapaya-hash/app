@@ -1783,7 +1783,14 @@ function applyFreightShipmentFilters(rows) {
 function getCargoRequestById(id)         { return appState.expenseRequests.find(r=>r.id===id); }
 function getFreightItemById(id)          { return appState.freightItems.find(r=>r.id===id); }
 function getShipmentById(id)             { return appState.freightShipments.find(r=>r.id===id); }
-function getFreightItemsByShipmentId(sid){ return appState.freightItems.filter(r=>r.shipment_id===sid); }
+function getFreightItemsByShipmentId(sid){
+  const shipment = appState.freightShipments.find(s => s.id === sid);
+  if (!shipment) return [];
+
+  return appState.freightItems.filter(
+    r => r.shipment_no === shipment.shipment_no
+  );
+}
 function getMasterByItem(item)           { return appState.expenseMaster.find(r=>r.item===item); }
 function getServiceCostName(id)          { if(!id)return"-"; return appState.serviceCosts.find(r=>r.id===id)?.name||"-"; }
 function getRoleLabel(key)               { return rolePermissions.find(r=>r.key===key)?.label||key||"-"; }
