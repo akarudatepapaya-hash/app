@@ -291,7 +291,20 @@ async function refreshData(...tables) {
     statement_rows:           async () => appState.statementRows    = await sb.select("statement_rows","order=date.desc,created_at.desc"),
     revenues:                 async () => appState.revenues         = await sb.select("revenues","order=created_at.desc")
   };
-  for (const t of tables) { if (map[t]) await map[t](); }
+
+  for (const t of tables) {
+    if (map[t]) await map[t]();
+  }
+
+  // 🔥 ต้องอยู่ตรงนี้ (หลัง fetch เสร็จ)
+  if (appState.freightShipments && appState.freightItems) {
+    for (const shipment of appState.freightShipments) {
+      shipment.items = appState.freightItems.filter(
+        e => e.shipment_no === shipment.shipment_no
+      );
+    }
+  }
+
   appState.lastSyncAt = new Date().toISOString();
 }
 
